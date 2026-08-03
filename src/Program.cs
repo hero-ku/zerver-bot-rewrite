@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Reflection;
+using System.Text.Json;
 using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
@@ -62,7 +63,7 @@ public class Program
 
     private static async Task Ready()
     {
-        await interactionService.AddModuleAsync<Points>(serviceProvider);
+        await interactionService.AddModulesAsync(Assembly.GetEntryAssembly(), serviceProvider);
         await interactionService.RegisterCommandsToGuildAsync(1531166559148445766);
     }
 
