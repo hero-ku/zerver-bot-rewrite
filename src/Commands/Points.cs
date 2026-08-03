@@ -1,9 +1,8 @@
-using System.Data;
-using System.Text;
 using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 public class Points(DiscordSocketClient client, Ledger ledger) : InteractionModuleBase
 {
@@ -76,21 +75,45 @@ public class Points(DiscordSocketClient client, Ledger ledger) : InteractionModu
     }
 
     [SlashCommand("ledger", "Formats the transaction history as a CSV file")]
-    public async Task GetLedger()
+    public async Task GetLedger(TimeZoneName zoneName = TimeZoneName.UTC)
     {
         var db = new BotContext();
         var stream = new MemoryStream();
         var writer = new StreamWriter(stream);
 
+        var zoneInfo = CreateTimeZoneInfoFromName(zoneName);
+
         writer.WriteLine("ID,Sender,Recipient,Amount,Time");
         await foreach (var transaction in db.Transactions.OrderDescending().AsAsyncEnumerable())
         {
-            await writer.WriteLineAsync($"{transaction.InteractionId},{transaction.SenderId},{transaction.RecipientId},{transaction.Amount},{transaction.Timestamp.DateTime}");
+            await writer.WriteLineAsync($"{transaction.InteractionId},{transaction.SenderId},{transaction.RecipientId},{transaction.Amount},{TimeZoneInfo.ConvertTime(transaction.Timestamp, zoneInfo).DateTime}");
         }
         await writer.FlushAsync();
         stream.Position = 0;
 
         var fileAttachment = new FileAttachment(stream, "ledger.csv");
         await RespondWithFileAsync(fileAttachment);
+    }
+
+    public enum TimeZoneName
+    {
+        [ChoiceDisplay("UTC")]
+        UTC,
+        [ChoiceDisplay("CST")]
+        CST,
+        [ChoiceDisplay("PST")]
+        PST,
+    }
+
+    private TimeZoneInfo CreateTimeZoneInfoFromName(TimeZoneName zoneName)
+    {
+        var id = zoneName switch
+        {
+            TimeZoneName.UTC => "Etc/UTC",
+            TimeZoneName.CST => "America/Chicago",
+            TimeZoneName.PST => "America/Los_Angeles",
+            _ => throw new ArgumentOutOfRangeException()
+        };
+        return TimeZoneInfo.FindSystemTimeZoneById(id);
     }
 }
