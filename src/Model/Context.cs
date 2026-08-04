@@ -1,12 +1,12 @@
-using System.ComponentModel.DataAnnotations;
 using dotenv.net;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 
 public class BotContext : DbContext
 {
     public DbSet<User> Users { get; set; }
     public DbSet<Transaction> Transactions { get; set; }
+    public DbSet<OstracismVote> OstracismVotes { get; set; }
+    public DbSet<ElectionVote> ElectionVotes { get; set; }
 
     public async Task<uint> GetPointsAsync(ulong userId)
     {
