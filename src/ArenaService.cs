@@ -52,15 +52,8 @@ public class ArenaService
     private async Task EndEvent()
     {
         await cancellationTokenSource.CancelAsync();
-
-        var arenaRole = guild.GetRole(config.ArenaRoleId);
-        var arenaParticipantRole = guild.GetRole(config.ArenaParticipantRoleId);
-
-        await foreach (var user in guild.GetUsersAsync().Flatten())
-        {
-            await user.RemoveRoleAsync(arenaRole);
-            await user.AddRoleAsync(arenaParticipantRole);
-        }
+        // Reset event role permission to inherited permissions (none)
+        await channel.AddPermissionOverwriteAsync(role, new OverwritePermissions());
     }
 
     private static void StartEventLoopAsync(int periodInMinutes, Func<Task> action, CancellationToken token, int offsetInMinutes = 0)
