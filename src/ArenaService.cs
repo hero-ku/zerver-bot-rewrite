@@ -12,9 +12,7 @@ namespace ZerverBot;
 
 public class ArenaService
 {
-    private readonly DiscordSocketClient client;
     private readonly AdminLog adminLog;
-    private readonly InteractionService interactionService;
     private readonly BotConfig config;
 
     private readonly SocketGuild guild;
@@ -24,11 +22,9 @@ public class ArenaService
     private readonly Task task;
     private readonly CancellationTokenSource cancellationTokenSource;
 
-    public ArenaService(DiscordSocketClient client, AdminLog adminLog, InteractionService interactionService, BotConfig config)
+    public ArenaService(DiscordSocketClient client, AdminLog adminLog, BotConfig config)
     {
-        this.client = client;
         this.adminLog = adminLog;
-        this.interactionService = interactionService;
         this.config = config;
 
         guild = client.GetGuild(config.GuildId);
@@ -43,17 +39,27 @@ public class ArenaService
         });
     }
 
-    public Task StartEvent()
+    public async Task StartEvent()
     {
+        await channel.AddPermissionOverwriteAsync(role, new OverwritePermissions(
+            viewChannel: PermValue.Allow,
+            sendMessages: PermValue.Allow,
+            sendMessagesInThreads: PermValue.Allow,
+            readMessageHistory: PermValue.Allow,
+            addReactions: PermValue.Allow
+        ));
+
         task.Start();
-        return Task.CompletedTask;
     }
 
-    private async Task EndEvent()
+    private async Task EndEvent(SocketGuildUser winner)
     {
-        await cancellationTokenSource.CancelAsync();
         // Reset event role permission to inherited permissions (none)
-        await channel.AddPermissionOverwriteAsync(role, new OverwritePermissions());
+        await channel.RemovePermissionOverwriteAsync(role);
+
+        await adminLog.AnnounceAsync($"{winner.Mention} is the winner of the Arena!");
+
+        await cancellationTokenSource.CancelAsync();
     }
 
     private static void StartEventLoopAsync(int periodInMinutes, Func<Task> action, CancellationToken token, int offsetInMinutes = 0)
@@ -129,7 +135,9 @@ public class ArenaService
             .Select(g => new { Id = g.Key, Total = g.Count() })
             .OrderByDescending(t => t.Total)
             .FirstOrDefaultAsync();
-        var totalVotes = await db.OstracismVotes.CountAsync();
+        var totalVotes = await db.ElectionVotes.CountAsync();
+
+        var userVotes = await GetUserVotes(db.ElectionVotes, guild, separator: "voted for");
 
         await db.ElectionVotes.ExecuteDeleteAsync();
 
@@ -141,7 +149,7 @@ public class ArenaService
             announcement.AppendLine();
             announcement.AppendLine("Nobody has won the elections!");
             announcement.AppendLine("");
-            announcement.AppendLine(await GetUserVotes(db.ElectionVotes, guild, separator: "voted for"));
+            announcement.AppendLine(userVotes);
             await channel.SendMessageAsync(announcement.ToString());
             return;
         }
@@ -152,11 +160,10 @@ public class ArenaService
         announcement.AppendLine();
         announcement.AppendLine($"{winner.Mention} won the election!");
         announcement.AppendLine();
-        announcement.AppendLine(await GetUserVotes(db.ElectionVotes, guild, separator: "voted for"));
+        announcement.AppendLine(userVotes);
         await channel.SendMessageAsync(announcement.ToString());
 
-        await EndEvent();
-        await adminLog.AnnounceAsync($"{winner.Mention} is the winner of the Arena!");
+        await EndEvent(winner);
     }
 
     public static async Task<string> GetVoteCounts<T>(DbSet<T> set, IGuild guild) where T : Vote
@@ -174,6 +181,10 @@ public class ArenaService
             builder.AppendLine($"{user.Mention} | {target.Total} votes");
         }
 
+        if (builder.Length == 0)
+        {
+            builder.AppendLine("There were no votes.");
+        }
         return builder.ToString();
     }
 
@@ -192,6 +203,10 @@ public class ArenaService
             builder.AppendLine($"{voter.Mention} {separator} {target.Mention}");
         }
 
+        if (builder.Length == 0)
+        {
+            builder.AppendLine("There were no votes.");
+        }
         return builder.ToString();
     }
 }

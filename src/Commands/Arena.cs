@@ -27,6 +27,7 @@ public class ArenaCommands(DiscordSocketClient client, ArenaService arenaService
         if (!target.RoleIds.Contains(config.ArenaRoleId))
         {
             await RespondAsync($"{target.Mention} is not in the arena.", ephemeral: true);
+            return;
         }
 
         var db = new BotContext();
@@ -49,6 +50,7 @@ public class ArenaCommands(DiscordSocketClient client, ArenaService arenaService
         if (!target.RoleIds.Contains(config.ArenaRoleId))
         {
             await RespondAsync($"{target.Mention} is not in the arena.", ephemeral: true);
+            return;
         }
 
         var db = new BotContext();
