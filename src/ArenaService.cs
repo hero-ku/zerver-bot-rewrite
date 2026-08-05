@@ -54,7 +54,11 @@ public class ArenaService
 
     private async Task EndEvent(SocketGuildUser winner)
     {
-        // Reset event role permission to inherited permissions (none)
+        // Add participants to commons
+        var commons = guild.GetCategoryChannel(config.CommonsCategoryId);
+        await commons.RemovePermissionOverwriteAsync(role);
+
+        // REmove participants from arena channel
         await channel.RemovePermissionOverwriteAsync(role);
 
         await adminLog.AnnounceAsync($"{winner.Mention} is the winner of the Arena!");
