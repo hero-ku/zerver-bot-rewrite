@@ -39,17 +39,10 @@ public class ArenaService
         });
     }
 
-    public async Task StartEvent()
+    public Task StartEvent()
     {
-        await channel.AddPermissionOverwriteAsync(role, new OverwritePermissions(
-            viewChannel: PermValue.Allow,
-            sendMessages: PermValue.Allow,
-            sendMessagesInThreads: PermValue.Allow,
-            readMessageHistory: PermValue.Allow,
-            addReactions: PermValue.Allow
-        ));
-
         task.Start();
+        return Task.CompletedTask;
     }
 
     private async Task EndEvent(SocketGuildUser winner)

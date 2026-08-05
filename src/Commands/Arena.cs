@@ -135,4 +135,19 @@ public class ArenaCommands(DiscordSocketClient client, ArenaService arenaService
             });
         }
     }
+
+    [SlashCommand("initialize", "Configures permissions for arena")]
+    public async Task InitializeArena()
+    {
+        var role = Context.Guild.GetRole(config.ArenaRoleId);
+        var channel = await Context.Guild.GetChannelAsync(config.CommonsCategoryId);
+
+        await channel.AddPermissionOverwriteAsync(role, new OverwritePermissions(
+            viewChannel: PermValue.Allow,
+            sendMessages: PermValue.Allow,
+            sendMessagesInThreads: PermValue.Allow,
+            readMessageHistory: PermValue.Allow,
+            addReactions: PermValue.Allow
+        ));
+    }
 }
