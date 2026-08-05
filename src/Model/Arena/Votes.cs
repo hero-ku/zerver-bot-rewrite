@@ -1,5 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 
+namespace ZerverBot.Model.Arena;
+
 public abstract class Vote
 {
     [Key]

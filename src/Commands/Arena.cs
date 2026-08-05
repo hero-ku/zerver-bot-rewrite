@@ -4,9 +4,26 @@ using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
+using ZerverBot;
+using ZerverBot.Model;
+using ZerverBot.Model.Arena;
 
-public class Arena(DiscordSocketClient client, BotConfig config, Ledger ledger) : InteractionModuleBase
+namespace ZerverBot.Commands;
+
+public class ArenaCommands(DiscordSocketClient client, ArenaService arenaService, BotConfig config, Ledger ledger) : InteractionModuleBase
 {
+    [SlashCommand("holdvote", "Hold a vote manually")]
+    public async Task HoldOstracism()
+    {
+        await arenaService.HoldOstracism();
+    }
+
+    [SlashCommand("holdelection", "Hold a vote manually")]
+    public async Task HoldElection()
+    {
+        await arenaService.HoldElection();
+    }
+
     [SlashCommand("ostracize", "Vote to ostracize a member")]
     public async Task Ostracize(IGuildUser target)
     {
@@ -16,9 +33,14 @@ public class Arena(DiscordSocketClient client, BotConfig config, Ledger ledger) 
         }
 
         var db = new BotContext();
-        var vote = await db.OstracismVotes.Where(v => v.VoterId == Context.User.Id).SingleOrDefaultAsync() ?? new OstracismVote { VoterId = Context.User.Id };
+        var vote = await db.OstracismVotes.Where(v => v.VoterId == Context.User.Id).SingleOrDefaultAsync();
+        if (vote == null)
+        {
+            vote = new OstracismVote { VoterId = Context.User.Id };
+            db.Add(vote);
+        }
+
         vote.TargetId = target.Id;
-        db.Add(vote);
         await db.SaveChangesAsync();
 
         await RespondAsync($"You are now voting for {target.Mention} to be ostracized.", ephemeral: true);
@@ -33,9 +55,14 @@ public class Arena(DiscordSocketClient client, BotConfig config, Ledger ledger) 
         }
 
         var db = new BotContext();
-        var vote = await db.ElectionVotes.Where(v => v.VoterId == Context.User.Id).SingleOrDefaultAsync() ?? new ElectionVote { VoterId = Context.User.Id };
+        var vote = await db.ElectionVotes.Where(v => v.VoterId == Context.User.Id).SingleOrDefaultAsync();
+        if (vote == null)
+        {
+            vote = new ElectionVote { VoterId = Context.User.Id };
+            db.Add(vote);
+        }
+
         vote.TargetId = target.Id;
-        db.Add(vote);
         await db.SaveChangesAsync();
 
         await RespondAsync($"You are now voting for {target.Mention} to be elected.", ephemeral: true);
@@ -49,8 +76,8 @@ public class Arena(DiscordSocketClient client, BotConfig config, Ledger ledger) 
         {
             var db = new BotContext();
             await RespondAsync(listUserVotes
-                ? await GetUserVotes(db.OstracismVotes)
-                : await GetVoteCounts(db.OstracismVotes)
+                ? await ArenaService.GetUserVotes(db.OstracismVotes, Context.Guild)
+                : await ArenaService.GetVoteCounts(db.OstracismVotes, Context.Guild)
             );
         }
 
@@ -59,40 +86,9 @@ public class Arena(DiscordSocketClient client, BotConfig config, Ledger ledger) 
         {
             var db = new BotContext();
             await RespondAsync(listUserVotes
-                ? await GetUserVotes(db.ElectionVotes)
-                : await GetVoteCounts(db.ElectionVotes)
+                ? await ArenaService.GetUserVotes(db.ElectionVotes, Context.Guild)
+                : await ArenaService.GetVoteCounts(db.ElectionVotes, Context.Guild)
             );
-        }
-
-        public async Task<string> GetVoteCounts<T>(DbSet<T> set) where T : Vote
-        {
-            var voteTotals = set
-            .GroupBy(v => v.TargetId)
-            .Select(g => new { Id = g.Key, Votes = g.Count() })
-            .OrderByDescending(t => t.Votes)
-            .AsAsyncEnumerable();
-
-            var builder = new StringBuilder();
-            await foreach (var target in voteTotals)
-            {
-                var user = await Context.Guild.GetUserAsync(target.Id);
-                builder.AppendLine($"{user.Mention} | {target.Votes} votes");
-            }
-
-            return builder.ToString();
-        }
-
-        public async Task<string> GetUserVotes<T>(DbSet<T> set) where T : Vote
-        {
-            var builder = new StringBuilder();
-            await foreach (var vote in set.AsAsyncEnumerable())
-            {
-                var voter = await Context.Guild.GetUserAsync(vote.VoterId);
-                var target = await Context.Guild.GetUserAsync(vote.TargetId);
-                builder.AppendLine($"{voter.Mention} -> {target.Mention}");
-            }
-
-            return builder.ToString();
         }
     }
 
@@ -104,7 +100,7 @@ public class Arena(DiscordSocketClient client, BotConfig config, Ledger ledger) 
 
         if (guildUser.RoleIds.Contains(role.Id))
         {
-            await RespondAsync($"You are already in the arena", ephemeral: true);
+            await RespondAsync($"You are already in the arena.", ephemeral: true);
             return;
         }
 
@@ -112,11 +108,11 @@ public class Arena(DiscordSocketClient client, BotConfig config, Ledger ledger) 
         var currentPoints = await db.GetPointsAsync(Context.User.Id);
         if (currentPoints < config.ArenaEntranceCost)
         {
-            await RespondAsync($"It costs **{config.ArenaEntranceCost} points** to buy into the arena, but you only have **{currentPoints} points**.", ephemeral: true);
+            await RespondAsync($"It costs **{config.ArenaEntranceCost:N0} points** to buy into the arena, but you only have **{currentPoints:N0} points**.", ephemeral: true);
             return;
         }
 
-        await RespondAsync($"It costs **{config.ArenaEntranceCost} points** to buy into the arena. Are you sure you want to continue?", components: new ComponentBuilder().WithButton("Yes", "confirm_enter_arena", ButtonStyle.Primary).Build(), ephemeral: true);
+        await RespondAsync($"It costs **{config.ArenaEntranceCost:N0} points** to buy into the arena. Are you sure you want to continue?", components: new ComponentBuilder().WithButton("Yes", "confirm_enter_arena", ButtonStyle.Primary).Build(), ephemeral: true);
         var interaction = await InteractionUtility.WaitForComponentInteractionAsync(client, "confirm_enter_arena", Context.Interaction, Context.User, TimeSpan.FromSeconds(10));
         if (interaction != null)
         {
@@ -127,10 +123,10 @@ public class Arena(DiscordSocketClient client, BotConfig config, Ledger ledger) 
 
             await ModifyOriginalResponseAsync((properties) =>
             {
-                properties.Content = $"You are now registered to enter the arena. Your balance is now **{newBalance} points**.";
+                properties.Content = $"You are now registered to enter the arena. Your balance is now **{newBalance:N0} points**.";
                 properties.Components = MessageComponent.Empty;
             });
-            await ledger.LogTransactionAsync($"{Context.User.Mention} (**{newBalance} points**) spent **{config.ArenaEntranceCost} points** to enter the arena", TransactionType.Delete, Context.Interaction.Id);
+            await ledger.LogTransactionAsync($"{Context.User.Mention} (**{newBalance:N0} points**) spent **{config.ArenaEntranceCost:N0} points** to enter the arena", TransactionType.Delete, Context.Interaction.Id);
         }
         else
         {

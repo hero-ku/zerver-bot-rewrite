@@ -1,5 +1,7 @@
 using Discord.WebSocket;
 
+namespace ZerverBot;
+
 public class Ledger(DiscordSocketClient client, BotConfig config)
 {
     private readonly SocketTextChannel channel = client.GetGuild(config.GuildId).GetTextChannel(config.LedgerChannelId);

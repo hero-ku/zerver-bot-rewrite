@@ -1,5 +1,8 @@
 using dotenv.net;
 using Microsoft.EntityFrameworkCore;
+using ZerverBot.Model.Arena;
+
+namespace ZerverBot.Model;
 
 public class BotContext : DbContext
 {
@@ -7,6 +10,28 @@ public class BotContext : DbContext
     public DbSet<Transaction> Transactions { get; set; }
     public DbSet<OstracismVote> OstracismVotes { get; set; }
     public DbSet<ElectionVote> ElectionVotes { get; set; }
+
+    public static readonly ulong RESERVE_ACCOUNT_ID = 1;
+
+    public async Task<uint> GetReservePointsAsync()
+    {
+        return await GetPointsAsync(RESERVE_ACCOUNT_ID);
+    }
+
+    public async Task<uint> AddReservePointsAsync(ulong interactionId, uint amount)
+    {
+        return await AddPointsAsync(interactionId, RESERVE_ACCOUNT_ID, amount);
+    }
+
+    public async Task<(uint, uint)> SendToReserveAsync(ulong interactionId, ulong senderId, uint amount)
+    {
+        return await TransferPointsAsync(interactionId, senderId, RESERVE_ACCOUNT_ID, amount);
+    }
+
+    public async Task<(uint, uint)> PayFromReserveAsync(ulong interactionId, ulong recipientId, uint amount)
+    {
+        return await TransferPointsAsync(interactionId, RESERVE_ACCOUNT_ID, recipientId, amount);
+    }
 
     public async Task<uint> GetPointsAsync(ulong userId)
     {
@@ -57,12 +82,11 @@ public class BotContext : DbContext
     public async Task<User> GetUserAsync(ulong userId)
     {
         var user = await Users.Where(u => u.Id == userId).SingleOrDefaultAsync();
-        if (user == null)
-        {
-            user = new User(userId);
-            await AddAsync(user);
-            await SaveChangesAsync();
-        }
+        if (user != null) return user;
+
+        user = new User(userId);
+        await AddAsync(user);
+        await SaveChangesAsync();
         return user;
     }
 

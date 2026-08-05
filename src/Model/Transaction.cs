@@ -1,12 +1,14 @@
 using System.ComponentModel.DataAnnotations;
 using Discord;
 
+namespace ZerverBot.Model;
+
 public class Transaction(ulong interactionId, ulong senderId, ulong recipientId, uint amount)
 {
     [Key]
-    public ulong InteractionId { get; set; } = interactionId;
-    public DateTimeOffset Timestamp { get; set; } = SnowflakeUtils.FromSnowflake(interactionId);
-    public ulong SenderId { get; set; } = senderId;
-    public ulong RecipientId { get; set; } = recipientId;
-    public uint Amount { get; set; } = amount;
+    public ulong InteractionId { get; init; } = interactionId;
+    public DateTimeOffset Timestamp { get; init; } = SnowflakeUtils.FromSnowflake(interactionId);
+    public ulong SenderId { get; init; } = senderId;
+    public ulong RecipientId { get; init; } = recipientId;
+    public uint Amount { get; init; } = amount;
 }

@@ -7,24 +7,26 @@ using dotenv.net;
 using Microsoft.Extensions.DependencyInjection;
 using Tomlyn;
 
-public class Program
+namespace ZerverBot;
+
+public static class Program
 {
-    private static readonly IServiceProvider serviceProvider;
-    private static readonly DiscordSocketClient client;
-    private static readonly InteractionService interactionService;
-    private static readonly BotConfig config;
+    private static readonly IServiceProvider ServiceProvider;
+    private static readonly DiscordSocketClient Client;
+    private static readonly InteractionService InteractionService;
+    private static readonly BotConfig Config;
 
     static Program()
     {
         DotEnv.Load();
-        serviceProvider = CreateProvider();
-        client = serviceProvider.GetRequiredService<DiscordSocketClient>();
-        interactionService = serviceProvider.GetRequiredService<InteractionService>();
-        config = serviceProvider.GetRequiredService<BotConfig>();
+        ServiceProvider = CreateProvider();
+        Client = ServiceProvider.GetRequiredService<DiscordSocketClient>();
+        InteractionService = ServiceProvider.GetRequiredService<InteractionService>();
+        Config = ServiceProvider.GetRequiredService<BotConfig>();
     }
 
 
-    private static IServiceProvider CreateProvider()
+    private static ServiceProvider CreateProvider()
     {
         var clientConfig = new DiscordSocketConfig()
         {
@@ -43,39 +45,41 @@ public class Program
             .AddSingleton(provider => new InteractionService(provider.GetRequiredService<DiscordSocketClient>().Rest))
             .AddSingleton(botConfig)
             .AddSingleton<Ledger>()
+            .AddSingleton<AdminLog>()
+            .AddSingleton<ArenaService>()
             .BuildServiceProvider();
     }
 
     public static async Task Main()
     {
 
-        client.Log += Log;
-        client.Ready += Ready;
-        client.InteractionCreated += HandleInteraction;
+        Client.Log += Log;
+        Client.Ready += Ready;
+        Client.InteractionCreated += HandleInteraction;
 
         var token = Environment.GetEnvironmentVariable("TOKEN");
 
-        await client.LoginAsync(TokenType.Bot, token);
-        await client.StartAsync();
+        await Client.LoginAsync(TokenType.Bot, token);
+        await Client.StartAsync();
 
         await Task.Delay(-1);
     }
 
     private static async Task Ready()
     {
-        await interactionService.AddModulesAsync(Assembly.GetEntryAssembly(), serviceProvider);
-        await interactionService.RegisterCommandsToGuildAsync(1531166559148445766);
+        await InteractionService.AddModulesAsync(Assembly.GetEntryAssembly(), ServiceProvider);
+        await InteractionService.RegisterCommandsToGuildAsync(1531166559148445766);
     }
 
-    public static async Task HandleInteraction(SocketInteraction interaction)
+    private static async Task HandleInteraction(SocketInteraction interaction)
     {
         try
         {
-            var context = new SocketInteractionContext(client, interaction);
-            var result = interactionService.ExecuteCommandAsync(context, serviceProvider);
-            if (result.Exception != null)
+            var context = new SocketInteractionContext(Client, interaction);
+            var result = await InteractionService.ExecuteCommandAsync(context, ServiceProvider);
+            if (result.Error != null)
             {
-                Console.WriteLine($"{result.Exception}");
+                Console.WriteLine($"{result.Error}");
             }
         }
         catch (Exception exception)
