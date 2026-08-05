@@ -1,10 +1,7 @@
-using System.Diagnostics.CodeAnalysis;
-using System.Text;
 using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
-using ZerverBot;
 using ZerverBot.Model;
 using ZerverBot.Model.Arena;
 
@@ -116,17 +113,16 @@ public class ArenaCommands(DiscordSocketClient client, ArenaService arenaService
         var interaction = await InteractionUtility.WaitForComponentInteractionAsync(client, "confirm_enter_arena", Context.Interaction, Context.User, TimeSpan.FromSeconds(10));
         if (interaction != null)
         {
-            var newBalance = await db.RemovePointsAsync(Context.Interaction.Id, Context.User.Id, config.ArenaEntranceCost);
-
+            var (newUserBalance, newReserveBalance) = await db.SendToReserveAsync(Context.Interaction.Id, Context.User.Id, config.ArenaEntranceCost);
 
             await guildUser.AddRoleAsync(role);
 
             await ModifyOriginalResponseAsync((properties) =>
             {
-                properties.Content = $"You are now registered to enter the arena. Your balance is now **{newBalance:N0} points**.";
+                properties.Content = $"You are now registered to enter the arena. Your balance is now **{newUserBalance:N0} points**.";
                 properties.Components = MessageComponent.Empty;
             });
-            await ledger.LogTransactionAsync($"{Context.User.Mention} (**{newBalance:N0} points**) spent **{config.ArenaEntranceCost:N0} points** to enter the arena", TransactionType.Delete, Context.Interaction.Id);
+            await ledger.LogTransactionAsync($"{Context.User.Mention} (**{newUserBalance:N0} points**) paid **{config.ArenaEntranceCost:N0} points** into the reserve (**{newReserveBalance:N0} points**) to enter the arena", TransactionType.Send, Context.Interaction.Id);
         }
         else
         {
