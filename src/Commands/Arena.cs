@@ -140,14 +140,19 @@ public class ArenaCommands(DiscordSocketClient client, ArenaService arenaService
     public async Task InitializeArena()
     {
         var role = Context.Guild.GetRole(config.ArenaRoleId);
-        var channel = await Context.Guild.GetChannelAsync(config.CommonsCategoryId);
 
-        await channel.AddPermissionOverwriteAsync(role, new OverwritePermissions(
+        var arenaChannel = await Context.Guild.GetChannelAsync(config.ArenaChannelId);
+        await arenaChannel.AddPermissionOverwriteAsync(role, new OverwritePermissions(
             viewChannel: PermValue.Allow,
             sendMessages: PermValue.Allow,
             sendMessagesInThreads: PermValue.Allow,
             readMessageHistory: PermValue.Allow,
             addReactions: PermValue.Allow
         ));
+
+        var commonsCategory = await Context.Guild.GetChannelAsync(config.CommonsCategoryId);
+        await commonsCategory.AddPermissionOverwriteAsync(role, new OverwritePermissions(viewChannel: PermValue.Deny));
+
+        await RespondAsync("Permissions configured.");
     }
 }

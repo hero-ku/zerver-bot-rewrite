@@ -48,7 +48,7 @@ public class ArenaService
     private async Task EndEvent(SocketGuildUser winner)
     {
         // Add participants to commons
-        var commons = guild.GetCategoryChannel(config.CommonsCategoryId);
+        var commons = guild.GetChannel(config.CommonsCategoryId);
         await commons.RemovePermissionOverwriteAsync(role);
 
         // REmove participants from arena channel

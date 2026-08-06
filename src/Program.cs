@@ -79,7 +79,7 @@ public static class Program
             var result = await InteractionService.ExecuteCommandAsync(context, ServiceProvider);
             if (result.Error != null)
             {
-                Console.WriteLine($"{result.Error}");
+                Console.WriteLine($"Error from a command: {result.Error}");
             }
         }
         catch (Exception exception)
