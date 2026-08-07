@@ -9,6 +9,7 @@ using Tomlyn;
 
 namespace ZerverBot;
 
+using Microsoft.EntityFrameworkCore.Query.Internal;
 using ZerverBot.Commands;
 
 public static class Program
@@ -57,7 +58,8 @@ public static class Program
 
         Client.Log += Log;
         Client.Ready += Ready;
-        Client.InteractionCreated += HandleInteraction;
+        Client.SlashCommandExecuted += ExecuteCommand;
+        InteractionService.SlashCommandExecuted += HandleCommandExecution;
 
         var token = Environment.GetEnvironmentVariable("TOKEN");
 
@@ -73,25 +75,27 @@ public static class Program
         await InteractionService.RegisterCommandsToGuildAsync(1531166559148445766);
     }
 
-    private static async Task HandleInteraction(SocketInteraction interaction)
+    private static async Task ExecuteCommand(SocketSlashCommand command)
     {
-        try
+        var context = new SocketInteractionContext(Client, command);
+        await InteractionService.ExecuteCommandAsync(context, ServiceProvider);
+    }
+
+    private static async Task HandleCommandExecution(SlashCommandInfo info, Discord.IInteractionContext context, IResult result)
+    {
+        if (result.IsSuccess) return;
+
+        var message = result switch
         {
-            var context = new SocketInteractionContext(Client, interaction);
-            var result = await InteractionService.ExecuteCommandAsync(context, ServiceProvider);
-            if (result.Error != null)
-            {
-                Console.WriteLine($"Error from a command: {result.Error}");
-            }
-        }
-        catch (Exception exception)
+            ExecuteResult { Exception: not null } exec => $"Error occurred during command: {exec.Exception.InnerException?.Message}",
+            _ => $"{result.Error}: {result.ErrorReason}"
+        };
+
+        if (!context.Interaction.HasResponded)
         {
-            Console.WriteLine(exception);
-            if (interaction.Type == InteractionType.ApplicationCommand)
-            {
-                await interaction.FollowupAsync($"Error: {exception}");
-            }
+            await context.Interaction.RespondAsync(message, ephemeral: true);
         }
+        Console.WriteLine(message);
     }
 
     private static Task Log(LogMessage message)
