@@ -86,6 +86,7 @@ public static class Program
         }
         catch (Exception exception)
         {
+            Console.WriteLine(exception);
             if (interaction.Type == InteractionType.ApplicationCommand)
             {
                 await interaction.FollowupAsync($"Error: {exception}");
