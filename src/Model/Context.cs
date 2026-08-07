@@ -8,6 +8,7 @@ public class BotContext : DbContext
 {
     public DbSet<User> Users { get; set; }
     public DbSet<Transaction> Transactions { get; set; }
+    public DbSet<Invite> Invites { get; set; }
     public DbSet<OstracismVote> OstracismVotes { get; set; }
     public DbSet<ElectionVote> ElectionVotes { get; set; }
 
