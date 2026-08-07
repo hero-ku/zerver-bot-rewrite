@@ -34,8 +34,8 @@ public class ArenaService
         cancellationTokenSource = new CancellationTokenSource();
         task = new Task(() =>
         {
-            StartEventLoopAsync(config.OstracismPeriod, HoldOstracism, cancellationTokenSource.Token);
-            StartEventLoopAsync(60 * 24, HoldElection, cancellationTokenSource.Token, config.ElectionTimeOfDay * 60);
+            StartPeriodLoop(config.OstracismPeriod, HoldOstracism, cancellationTokenSource.Token);
+            StartDailyLoop(config.ElectionTimeOfDay, HoldElection, cancellationTokenSource.Token);
         });
     }
 
@@ -59,7 +59,7 @@ public class ArenaService
         await cancellationTokenSource.CancelAsync();
     }
 
-    private static void StartEventLoopAsync(int periodInMinutes, Func<Task> action, CancellationToken token, int offsetInMinutes = 0)
+    private void StartDailyLoop(int timeInMinutes, Func<Task> action, CancellationToken token)
     {
         Task.Run(async () =>
         {
@@ -67,11 +67,8 @@ public class ArenaService
             {
                 var currentTime = DateTime.Now;
                 var currentMinute = currentTime.Hour * 60 + currentTime.Minute;
-
-                var lastPeriodMinute = currentMinute - (currentMinute % periodInMinutes);
-                var nextPeriodMinute = lastPeriodMinute + periodInMinutes;
-
-                var nextPeriod = currentTime.Date.AddMinutes(nextPeriodMinute + offsetInMinutes);
+                var nextPeriodDate = currentMinute >= timeInMinutes ? DateTime.Today.AddDays(1) : DateTime.Today;
+                var nextPeriod = nextPeriodDate.AddMinutes(timeInMinutes);
                 var timeUntilNextPeriod = nextPeriod - currentTime;
 
                 await Task.Delay(timeUntilNextPeriod, token);
@@ -79,7 +76,49 @@ public class ArenaService
                 {
                     return Task.FromCanceled(token);
                 }
-                await action();
+                try
+                {
+                    await action();
+                }
+                catch (Exception exception)
+                {
+                    await adminLog.LogAsync($"Error occurred while holding election: {exception}");
+                }
+            }
+        });
+    }
+
+    private Task StartPeriodLoop(int periodInMinutes, Func<Task> action, CancellationToken token)
+    {
+        return Task.Run(async () =>
+        {
+            while (!token.IsCancellationRequested)
+            {
+                var currentTime = DateTime.Now;
+                var currentMinute = currentTime.Hour * 60 + currentTime.Minute;
+
+                var lastPeriodMinute = currentMinute - (currentMinute % periodInMinutes);
+                var nextPeriodMinute = lastPeriodMinute + periodInMinutes;
+
+                var nextPeriod = currentTime.Date.AddMinutes(nextPeriodMinute);
+
+                try
+                {
+                    await Task.Delay(nextPeriod - currentTime, token);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+
+                try
+                {
+                    await action();
+                }
+                catch (Exception exception)
+                {
+                    await adminLog.LogAsync($"Error occurred while holding ostracism: {exception}");
+                }
             }
         }, token);
     }

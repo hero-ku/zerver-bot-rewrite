@@ -7,6 +7,8 @@ public class BotConfig
     public ulong SpeakerChannelId { set; get; }
     public ulong CommonsCategoryId { set; get; }
 
+    public ulong MessageChannelId { set; get; }
+
     public ulong ArenaRoleId { set; get; }
     public ulong ArenaParticipantRoleId { set; get; }
     public ulong ArenaChannelId { set; get; }

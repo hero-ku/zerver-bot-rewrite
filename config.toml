@@ -3,8 +3,10 @@ ledger_channel_id = 1531486190103167129
 speaker_channel_id = 1534382189565710408
 commons_category_id = 1531425301882605648
 
+message_channel_id = 1531421329796890745
+
 arena_role_id = 1531421029249974584
 arena_channel_id = 1531421329796890745
 arena_entrance_cost = 100
 ostracism_period = 10
-election_time_of_day = 8
+election_time_of_day = 1290

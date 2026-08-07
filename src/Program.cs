@@ -9,6 +9,8 @@ using Tomlyn;
 
 namespace ZerverBot;
 
+using ZerverBot.Commands;
+
 public static class Program
 {
     private static readonly IServiceProvider ServiceProvider;
