@@ -21,6 +21,7 @@ public class ArenaService
 
     private readonly Task task;
     private readonly CancellationTokenSource cancellationTokenSource;
+    private Boolean isPaused = false;
 
     public ArenaService(DiscordSocketClient client, AdminLog adminLog, BotConfig config)
     {
@@ -45,6 +46,12 @@ public class ArenaService
         return Task.CompletedTask;
     }
 
+    public bool PauseOrResumeEvent()
+    {
+        isPaused = !isPaused;
+        return isPaused;
+    }
+
     private async Task EndEvent(SocketGuildUser winner)
     {
         // Add participants to commons
@@ -59,22 +66,25 @@ public class ArenaService
         await cancellationTokenSource.CancelAsync();
     }
 
-    private void StartDailyLoop(int timeInMinutes, Func<Task> action, CancellationToken token)
+    private Task StartDailyLoop(int timeInMinutes, Func<Task> action, CancellationToken token)
     {
-        Task.Run(async () =>
+        return Task.Run(async () =>
         {
             while (true)
             {
-                var currentTime = DateTime.Now;
-                var currentMinute = currentTime.Hour * 60 + currentTime.Minute;
-                var nextPeriodDate = currentMinute >= timeInMinutes ? DateTime.Today.AddDays(1) : DateTime.Today;
-                var nextPeriod = nextPeriodDate.AddMinutes(timeInMinutes);
-                var timeUntilNextPeriod = nextPeriod - currentTime;
+                var now = DateTime.Now;
+                var next = now.Date.AddMinutes(timeInMinutes);
+                if (next <= now)
+                    next = now.Date.AddDays(1).AddMinutes(timeInMinutes);
 
-                await Task.Delay(timeUntilNextPeriod, token);
+                await Task.Delay(next - now, token);
                 if (token.IsCancellationRequested)
                 {
                     return Task.FromCanceled(token);
+                }
+                if (isPaused)
+                {
+                    continue;
                 }
                 try
                 {
@@ -82,7 +92,14 @@ public class ArenaService
                 }
                 catch (Exception exception)
                 {
-                    await adminLog.LogAsync($"Error occurred while holding election: {exception}");
+                    try
+                    {
+                        await adminLog.LogAsync($"Error occurred while holding election: {exception}");
+                    }
+                    catch (Exception logException)
+                    {
+                        Console.WriteLine(logException);
+                    }
                 }
             }
         });
@@ -117,7 +134,14 @@ public class ArenaService
                 }
                 catch (Exception exception)
                 {
-                    await adminLog.LogAsync($"Error occurred while holding ostracism: {exception}");
+                    try
+                    {
+                        await adminLog.LogAsync($"Error occurred while holding ostracism: {exception}");
+                    }
+                    catch (Exception logException)
+                    {
+                        Console.WriteLine(logException);
+                    }
                 }
             }
         }, token);
@@ -125,7 +149,7 @@ public class ArenaService
 
     public async Task HoldOstracism()
     {
-        var db = new BotContext();
+        await using var db = new BotContext();
         var highestVotes = await db.OstracismVotes
             .GroupBy(v => v.TargetId)
             .Select(g => new { Id = g.Key, Total = g.Count() })
@@ -149,15 +173,24 @@ public class ArenaService
 
         var highestVote = highestVotes.First();
         var user = guild.GetUser(highestVote.Id);
-
-        await user.RemoveRoleAsync(role);
+        if (user is not null)
+        {
+            try
+            {
+                await user.RemoveRoleAsync(role);
+            }
+            catch (Exception exception)
+            {
+                await adminLog.LogAsync(exception.ToString());
+            }
+        }
 
         announcement.AppendLine("@everyone");
         announcement.AppendLine();
-        announcement.AppendLine($"{user.Mention} has been ostracized with **{highestVote.Total} votes**!");
+        announcement.AppendLine($"{user?.Mention ?? $"{highestVote.Id}"} has been ostracized with **{highestVote.Total} votes**!");
         announcement.AppendLine();
         announcement.AppendLine(await GetUserVotes(db.OstracismVotes, guild, separator: "voted for"));
-        channel.GetMessagesAsync();
+
         await channel.SendMessageAsync(announcement.ToString());
 
         await db.OstracismVotes.ExecuteDeleteAsync();

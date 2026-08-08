@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Discord.Interactions;
 using Discord.WebSocket;
 
@@ -13,6 +14,17 @@ public class EventCommands : InteractionModuleBase
         {
             await arenaService.StartEvent();
             await RespondAsync("Arena started.");
+        }
+    }
+
+    [Group("pause", "Pauses or resumes an event")]
+    public class PauseCommands(ArenaService arenaService) : InteractionModuleBase
+    {
+        [SlashCommand("arena", "Pause or resumes the arena")]
+        public async Task PauseArena()
+        {
+            var isNowPaused = arenaService.PauseOrResumeEvent();
+            await RespondAsync(isNowPaused ? "Paused Arena." : "Resumed Arena.");
         }
     }
 }

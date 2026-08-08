@@ -10,7 +10,14 @@ public class AdminLog(DiscordSocketClient client, BotConfig config)
 
     public async Task LogAsync(string message)
     {
-        await channel.SendMessageAsync(message);
+        try
+        {
+            await channel.SendMessageAsync(message);
+        }
+        catch (Exception exception)
+        {
+            Console.WriteLine(exception);
+        }
     }
 
     public async Task AnnounceAsync(string message)
