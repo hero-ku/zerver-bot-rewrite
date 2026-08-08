@@ -33,7 +33,7 @@ public static class Program
     {
         var clientConfig = new DiscordSocketConfig()
         {
-            GatewayIntents = GatewayIntents.AllUnprivileged
+            GatewayIntents = GatewayIntents.AllUnprivileged ^ GatewayIntents.GuildScheduledEvents
         };
 
         var configSource = File.ReadAllText("config.toml");
@@ -81,13 +81,13 @@ public static class Program
         await InteractionService.ExecuteCommandAsync(context, ServiceProvider);
     }
 
-    private static async Task HandleCommandExecution(SlashCommandInfo info, Discord.IInteractionContext context, IResult result)
+    private static async Task HandleCommandExecution(SlashCommandInfo info, IInteractionContext context, IResult result)
     {
         if (result.IsSuccess) return;
 
         var message = result switch
         {
-            ExecuteResult { Exception: not null } exec => $"Error occurred during command: {exec.Exception.InnerException?.Message}",
+            ExecuteResult { Exception: not null } exec => $"Error occurred during command: {exec.Exception.GetBaseException()}",
             _ => $"{result.Error}: {result.ErrorReason}"
         };
 
