@@ -7,20 +7,8 @@ using ZerverBot.Model.Arena;
 
 namespace ZerverBot.Commands;
 
-public class ArenaCommands(DiscordSocketClient client, ArenaService arenaService, BotConfig config, Ledger ledger) : InteractionModuleBase
+public class ArenaCommands(DiscordSocketClient client, BotConfig config, Ledger ledger) : InteractionModuleBase
 {
-    [SlashCommand("holdvote", "Hold a vote manually")]
-    public async Task HoldOstracism()
-    {
-        await arenaService.HoldOstracism();
-    }
-
-    [SlashCommand("holdelection", "Hold a vote manually")]
-    public async Task HoldElection()
-    {
-        await arenaService.HoldElection();
-    }
-
     [SlashCommand("ostracize", "Vote to ostracize a member")]
     public async Task Ostracize(IGuildUser target)
     {
@@ -88,6 +76,22 @@ public class ArenaCommands(DiscordSocketClient client, ArenaService arenaService
                 ? await ArenaService.GetUserVotes(db.ElectionVotes, Context.Guild)
                 : await ArenaService.GetVoteCounts(db.ElectionVotes, Context.Guild)
             );
+        }
+    }
+
+    [Group("run-vote", "Holds a vote")]
+    public class RunVoteCommands(ArenaService arenaService) : InteractionModuleBase
+    {
+        [SlashCommand("ostracism", "Holds an ostracism")]
+        public async Task HoldOstracism()
+        {
+            await arenaService.HoldOstracism();
+        }
+
+        [SlashCommand("election", "Holds an election")]
+        public async Task HoldElection()
+        {
+            await arenaService.HoldElection();
         }
     }
 
