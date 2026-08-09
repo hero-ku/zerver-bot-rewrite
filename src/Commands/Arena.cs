@@ -173,4 +173,10 @@ public class ArenaCommands(DiscordSocketClient client, BotConfig config, Ledger 
         config.ElectionTimeOfDay = timeOfDay;
         await RespondAsync($"{config.ElectionTimeOfDay}");
     }
+
+    [SlashCommand("set-arena-entrance-cost", "Sets arena entrance cost")]
+    public async Task SetArenaEntranceCost(uint entranceCost) {
+        config.ArenaEntranceCost = entranceCost;
+        await RespondAsync($"{config.ArenaEntranceCost}");
+    }
 }
