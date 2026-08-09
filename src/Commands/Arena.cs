@@ -159,4 +159,18 @@ public class ArenaCommands(DiscordSocketClient client, BotConfig config, Ledger 
 
         await RespondAsync("Permissions configured.");
     }
+
+    [SlashCommand("set-ostracism-period", "Sets ostracism period")]
+    public async Task SetOstracismPeriod(int period)
+    {
+        config.OstracismPeriod = period;
+        await RespondAsync($"{config.OstracismPeriod}");
+    }
+
+    [SlashCommand("set-election-time-of-day", "Sets election time of day")]
+    public async Task SetElectionTimeOfDay(int timeOfDay)
+    {
+        config.ElectionTimeOfDay = timeOfDay;
+        await RespondAsync($"{config.ElectionTimeOfDay}");
+    }
 }
