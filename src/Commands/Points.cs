@@ -48,6 +48,9 @@ public class PointCommands(DiscordSocketClient client, Ledger ledger) : Interact
                 properties.Components = MessageComponent.Empty;
             });
         }
+
+        var dmChannel = await recipient.CreateDMChannelAsync();
+        await dmChannel.SendMessageAsync($"{Context.User.Mention} sent you **{amount:N0} points**!");
     }
 
     [Group("points", "Manage points")]
@@ -62,12 +65,15 @@ public class PointCommands(DiscordSocketClient client, Ledger ledger) : Interact
         }
 
         [SlashCommand("add", "Adds points to a user's balance")]
-        public async Task AddPoints(IUser user, uint amount)
+        public async Task AddPoints(IUser user, uint amount, string reason)
         {
             var db = new BotContext();
             var points = await db.AddPointsAsync(Context.Interaction.Id, user.Id, amount);
             await RespondAsync($"Successfully gave **{amount:N0} points** to {user.Mention} (**{points:N0} points**).", ephemeral: true);
-            await ledger.LogTransactionAsync($"{Context.User.Mention} gave **{amount:N0} points** to {user.Mention} (**{points:N0} points**)", TransactionType.Create, Context.Interaction.Id);
+            await ledger.LogTransactionAsync($"{Context.User.Mention} gave **{amount:N0} points** to {user.Mention} (**{points:N0} points**) for **{reason}**", TransactionType.Create, Context.Interaction.Id);
+
+            var dmChannel = await user.CreateDMChannelAsync();
+            await dmChannel.SendMessageAsync($"You have been awarded **{amount:N0} points** for **{reason}**.");
         }
 
         [SlashCommand("remove", "Removes points from a user's balance")]
@@ -144,12 +150,15 @@ public class PointCommands(DiscordSocketClient client, Ledger ledger) : Interact
         }
 
         [SlashCommand("pay", "Pay a user points from the reserve")]
-        public async Task PayFromReserve(IUser user, uint amount)
+        public async Task PayFromReserve(IUser user, uint amount, string reason)
         {
             var db = new BotContext();
             var (newReserveBalance, newUserBalance) = await db.PayFromReserveAsync(Context.Interaction.Id, user.Id, amount);
             await RespondAsync($"Successfully paid **{amount:N0} points** to {user.Mention} (**{newUserBalance:N0}**) from the reserve.", ephemeral: true);
-            await ledger.LogTransactionAsync($"{Context.User.Mention} paid **{amount:N0} points** to {user.Mention} (**{newUserBalance:N0}**) from the reserve (**{newReserveBalance:N0} points**)", TransactionType.Send, Context.Interaction.Id);
+            await ledger.LogTransactionAsync($"{Context.User.Mention} paid **{amount:N0} points** to {user.Mention} (**{newUserBalance:N0}**) from the reserve (**{newReserveBalance:N0} points**) for **{reason}**", TransactionType.Send, Context.Interaction.Id);
+
+            var dmChannel = await user.CreateDMChannelAsync();
+            await dmChannel.SendMessageAsync($"You have been awarded **{amount:N0} points** for **{reason}**.");
         }
     }
 }

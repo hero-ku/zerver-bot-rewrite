@@ -150,22 +150,48 @@ public class ArenaService
     public async Task HoldOstracism()
     {
         await using var db = new BotContext();
-        var highestVotes = await db.OstracismVotes
+        var votes = await db.OstracismVotes.ToListAsync();
+
+        await db.Users.Where(u => db.OstracismVotes.Any(v => v.VoterId == u.Id)).ExecuteUpdateAsync(setters =>
+        {
+            setters.SetProperty(u => u.Points, u => u.Points + config.OstracismVotingReward);
+        });
+
+        foreach (var vote in votes)
+        {
+            var voter = guild.GetUser(vote.VoterId);
+            if (voter is not null)
+            {
+                try
+                {
+                    var dmChannel = await voter.CreateDMChannelAsync();
+                    await dmChannel.SendMessageAsync($"You have been awarded **{config.OstracismVotingReward:N0} points** for **voting in the ostracism**.");
+                }
+                catch (Exception exception)
+                {
+                    await adminLog.LogAsync(exception.ToString());
+                }
+            }
+        }
+
+        var highestVotes = votes
             .GroupBy(v => v.TargetId)
             .Select(g => new { Id = g.Key, Total = g.Count() })
             .OrderByDescending(t => t.Total)
-            .Take(2)
-            .ToListAsync();
+            .ToList();
+        var userVotes = await GetUserVotes(db.OstracismVotes, guild, separator: "voted for");
+
+        await db.OstracismVotes.ExecuteDeleteAsync();
 
         var announcement = new StringBuilder();
 
-        if (highestVotes.Count != 1)
+        if (highestVotes.Count == 0 || highestVotes.Count > 1 && highestVotes[0].Total == highestVotes[1].Total)
         {
             announcement.AppendLine("@everyone");
             announcement.AppendLine();
             announcement.AppendLine("The vote was a tie, so nobody was ostracized!");
             announcement.AppendLine();
-            announcement.AppendLine(await GetUserVotes(db.OstracismVotes, guild, separator: "voted for"));
+            announcement.AppendLine(userVotes);
 
             await channel.SendMessageAsync(announcement.ToString());
             return;
@@ -189,30 +215,46 @@ public class ArenaService
         announcement.AppendLine();
         announcement.AppendLine($"{user?.Mention ?? $"{highestVote.Id}"} has been ostracized with **{highestVote.Total} votes**!");
         announcement.AppendLine();
-        announcement.AppendLine(await GetUserVotes(db.OstracismVotes, guild, separator: "voted for"));
+        announcement.AppendLine(userVotes);
 
         await channel.SendMessageAsync(announcement.ToString());
-
-        await db.OstracismVotes.ExecuteDeleteAsync();
     }
 
     public async Task HoldElection()
     {
-        var db = new BotContext();
-        var highestVote = await db.ElectionVotes
-            .GroupBy(v => v.TargetId)
-            .Select(g => new { Id = g.Key, Total = g.Count() })
-            .OrderByDescending(t => t.Total)
-            .FirstOrDefaultAsync();
-        var totalVotes = await db.ElectionVotes.CountAsync();
+        await using var db = new BotContext();
+        var votes = await db.ElectionVotes.ToListAsync();
 
+        await db.Users.Where(u => db.ElectionVotes.Any(v => v.VoterId == u.Id)).ExecuteUpdateAsync(setters =>
+        {
+            setters.SetProperty(u => u.Points, u => u.Points + config.ElectionVotingReward);
+        });
+
+        foreach (var vote in votes)
+        {
+            var voter = guild.GetUser(vote.VoterId);
+            if (voter is not null)
+            {
+                try
+                {
+                    var dmChannel = await voter.CreateDMChannelAsync();
+                    await dmChannel.SendMessageAsync($"You have been awarded **{config.ElectionVotingReward:N0} points** for **voting in the ostracism**.");
+                }
+                catch (Exception exception)
+                {
+                    await adminLog.LogAsync(exception.ToString());
+                }
+            }
+        }
+
+        var highestVote = votes.AggregateBy(v => v.TargetId, (id) => new { Id = id, Total = 0 }, (v, _) => v with { Total = v.Total + 1 }).MaxBy((v) => v.Value.Total).Value;
         var userVotes = await GetUserVotes(db.ElectionVotes, guild, separator: "voted for");
 
         await db.ElectionVotes.ExecuteDeleteAsync();
 
         var announcement = new StringBuilder();
 
-        if (highestVote?.Total != totalVotes)
+        if (highestVote.Total != votes.Count)
         {
             announcement.AppendLine("@everyone");
             announcement.AppendLine();

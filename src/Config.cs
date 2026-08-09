@@ -16,4 +16,7 @@ public class BotConfig
     public uint ArenaEntranceCost { set; get; }
     public int OstracismPeriod { set; get; }
     public int ElectionTimeOfDay { set; get; }
+
+    public uint OstracismVotingReward { set; get; }
+    public uint ElectionVotingReward { set; get; }
 }
