@@ -85,7 +85,7 @@ public class BotContext : DbContext
         var user = await Users.Where(u => u.Id == userId).SingleOrDefaultAsync();
         if (user != null) return user;
 
-        user = new User(userId);
+        user = new User(userId, 50);
         await AddAsync(user);
         await SaveChangesAsync();
         return user;
